@@ -1,0 +1,13 @@
+History of development 
+I was working with Bitbucket on my private projects for a long time. I wanted to switch from FTP deployment into GIT. I mean, when I commit something to my private Bitbucket repo I wanted it to appear on my shared webhosting server too, without FTP syncing. 
+
+How script works? 
+1. It gets last commits zip 
+2. Deletes all files recursively from your web hosting 
+3. Unzips .zip file contents into destination folder that you set (By default destination folder is root) 
+
+Installation 
+1. Upload deploy.php into your webhosting server 
+2. Set your BitBucket username, password and repo name 
+3. Configure your private repo to send POST into deploy.php when you commit. Here is how to: http://goo.gl/9weh8 
+4. That's it
