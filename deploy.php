@@ -7,12 +7,12 @@ $password = '';
 // your Bitbucket repo name
 $reponame = "";
 
+
 // extract to
 $dest = "./"; // leave ./ for relative destination
-
 //Exclusion list
 $exc = array(
-    "files" => array("deploy.php", "lastcommit.hash"),
+    "files" => array("tip.zip","deploy.php","lastcommit.hash","conf.php"),
 );
 
 // set higher script timeout (for large repo's or slow servers)
@@ -20,18 +20,25 @@ $timeLimit = 5000;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 $mode = intval(isset($_POST['payload']));
+
+if(isset($_GET['commit'])) $mode = 2;
+
+$force = isset($_GET['force']);
 $owner = $username; // if user is owner
 $repo = $reponame;
 $response = "";
-if ($mode == 0) {
-    function callback($url, $chunk) {
+if($mode == 0) // manual deploy
+{
+    function callback ($url, $chunk){
         global $response;
         $response .= $chunk;
         return strlen($chunk);
-    }
+    };
 
     $ch = curl_init("https://api.bitbucket.org/1.0/repositories/$owner/$repo/changesets?limit=1");
+
     curl_setopt($ch, CURLOPT_USERPWD, "$username:$password");
+
     curl_setopt($ch, CURLOPT_HEADER, 0);
     curl_setopt($ch, CURLOPT_HTTPHEADER, array('User-Agent:Mozilla/5.0'));
     curl_setopt($ch, CURLOPT_WRITEFUNCTION, 'callback');
@@ -41,26 +48,31 @@ if ($mode == 0) {
     $changesets = json_decode($response, true);
     $node = $changesets['changesets'][0]['node'];
     $raw_node = $changesets['changesets'][0]['raw_node'];
-} else {
+}
+else if($mode == 1) // auto deploy
+{
     $json = stripslashes($_POST['payload']);
     $data = json_decode($json);
 // Set some parameters to fetch the correct files
     $uri = $data->repository->absolute_url;
     $node = $data->commits[0]->node;
+    echo $node;
     $files = $data->commits[0]->files;
 }
-// Check last commit hash
-if (file_exists('lastcommit.hash')) {
-    $lastcommit = file_get_contents('lastcommit.hash');
-    if ($lastcommit == $node)
-        die('Project is already up to date');
+else if($mode == 2) // deploy with hash code
+{
+    $node = $_GET['commit'];
+    $node = substr($node,0,13);
+    echo 'commit: '.$node."\n";
 }
-file_put_contents('lastcommit.hash', $node);
+// Check last commit hash
+
 set_time_limit($timeLimit);
 
 // Grab the data from BB's POST service and decode
-//Clear Root 
-rmdirRecursively($dest);
+
+//Clear Root
+
 
 // download the repo zip file
 $fp = fopen("tip.zip", 'w');
@@ -76,27 +88,46 @@ $data = curl_exec($ch);
 curl_close($ch);
 fclose($fp);
 
+$tipsize = filesize("tip.zip");
+echo 'commitfilesize '.$tipsize.' \n';
+if($tipsize < 50)
+{
+    die("Commit not found");
+}
+
+if(!$force && file_exists('lastcommit.hash'))
+{
+    $lastcommit = file_get_contents('lastcommit.hash');
+    if($lastcommit == $node) die('Project is already up to date');
+}
+file_put_contents('lastcommit.hash', $node);
+
+rmdirRecursively($dest);
+
+
 // unzip
 $zip = new ZipArchive;
 $res = $zip->open('tip.zip');
-if ($res !== TRUE) 
+if ($res !== TRUE) {
     die('ZIP not supported on this server!');
+}
+
 $zip->extractTo("$dest/");
 $zip->close();
 
 copy_recursively("$username-$reponame-$node", $dest);
-rmdirRecursively("$username-$reponame-$node");
-rmdir("$username-$reponame-$node");
-
+//rmdirRecursively("$username-$reponame-$node");
+//rmdir("$username-$reponame-$node");
 // Delete the repo zip file
 unlink("tip.zip");
 
 // function to delete all files in a directory recursively
 function rmdirRecursively($dir) {
     global $exc;
+   // echo '\n'.$dir.'\n';
     $it = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator($dir),
-                    RecursiveIteratorIterator::CHILD_FIRST
+        new RecursiveDirectoryIterator($dir),
+        RecursiveIteratorIterator::CHILD_FIRST
     );
 
     $excludeDirsNames = array();
@@ -134,6 +165,5 @@ function copy_recursively($src, $dest) {
     //  rmdir_recursively($src);
 }
 
-if ($mode == 0)
-    echo 'Done';
+if($mode == 0) echo 'Done';
 ?>
