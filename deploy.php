@@ -245,4 +245,5 @@ function copy_recursively($src, $dest) {
 }
 
 if($mode != 1) echo '<br>Done';
+
 ?>
