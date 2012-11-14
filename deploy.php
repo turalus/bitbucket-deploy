@@ -54,6 +54,11 @@ else if($mode == 2) // deploy with hash code
 }
 // Check last commit hash
 
+if(isset($_GET['updated']))
+{
+    echo "\n<br>Bitbucket Deploy Updated<br>\n";
+}
+
 set_time_limit($timeLimit);
 
 // Grab the data from BB's POST service and decode
@@ -153,9 +158,16 @@ function updateDeploy()
     unlink("codearts-bitbucket-deploy-$node/deploy.php");
     unlink("codearts-bitbucket-deploy-$node/README");
     rmdirRecursively("codearts-bitbucket-deploy-$node");
+    $uri = $_SERVER['REQUEST_URI'];
+    if(strpos($uri,"?")>0)
+    {
+        $uri.="&updated";
+    }
+    else
+        $uri.="?updated";
+    header("Location:/deploy.php".$uri);die();
 
-
-    if($mode != 1) echo "\n<br>Bitbucket Deploy Updated<br>\n";
+//    if($mode != 1) echo "\n<br>Bitbucket Deploy Updated<br>\n";
 }
 
 function rmdirRecursively($dir,$noExclude=false) {
