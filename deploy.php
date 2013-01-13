@@ -12,7 +12,7 @@ if (isset($_GET['commit']))
     $mode = 2;
 
 $force = isset($_GET['force']);
-$owner = ($owner===true) ? $username : $owner; // if user is owner
+$owner = (isset($owner)) ? $owner : $username; // if user is owner
 $repo = $reponame;
 $response = "";
 
@@ -24,7 +24,7 @@ if ($mode == 0) { // manual deploy
         return strlen($chunk);
     }
 
-;
+    ;
 
     $ch = curl_init("https://api.bitbucket.org/1.0/repositories/$owner/$repo/changesets?limit=1");
 
@@ -61,11 +61,11 @@ if (isset($_GET['updated'])) {
 set_time_limit($timeLimit);
 
 // Grab the data from BB's POST service and decode
-//Clear Root
+// Clear Root
 // download the repo zip file
 $fp = fopen("tip.zip", 'w');
 
-$ch = curl_init("https://bitbucket.org/$username/$reponame/get/$node.zip");
+$ch = curl_init("https://bitbucket.org/$owner/$reponame/get/$node.zip");
 curl_setopt($ch, CURLOPT_USERPWD, "$username:$password");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
@@ -108,9 +108,9 @@ if ($res !== TRUE) {
 $zip->extractTo("$dest/");
 $zip->close();
 
-copy_recursively("$username-$reponame-$node", $dest);
-rmdirRecursively("$username-$reponame-$node", true);
-rmdir("$username-$reponame-$node");
+copy_recursively("$owner-$reponame-$node", $dest);
+rmdirRecursively("$owner-$reponame-$node", true);
+rmdir("$owner-$reponame-$node");
 // Delete the repo zip file
 unlink("tip.zip");
 
