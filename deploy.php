@@ -63,6 +63,16 @@ set_time_limit($timeLimit);
 // Grab the data from BB's POST service and decode
 // Clear Root
 // download the repo zip file
+
+if (!$force && file_exists('lastcommit.hash')) {
+    $lastcommit = file_get_contents('lastcommit.hash');
+    if ($lastcommit == $node)
+        die('Project is already up to date');
+}
+
+file_put_contents('lastcommit.hash', $node);
+
+
 $fp = fopen("tip.zip", 'w');
 
 $ch = curl_init("https://bitbucket.org/$owner/$reponame/get/$node.zip");
@@ -76,6 +86,7 @@ $data = curl_exec($ch);
 curl_close($ch);
 fclose($fp);
 
+$exc["files"][] = realpath("tip.zip");
 
 $tipsize = filesize("tip.zip");
 
@@ -83,19 +94,19 @@ if ($tipsize < 50) {
     die("Commit not found");
 }
 
-if (!$force && file_exists('lastcommit.hash')) {
-    $lastcommit = file_get_contents('lastcommit.hash');
-    if ($lastcommit == $node)
-        die('Project is already up to date');
-}
 
-file_put_contents('lastcommit.hash', $node);
 
 
 if ($autoUpdate)
     updateDeploy();
 
-rmdirRecursively($dest);
+//var_dump($exc);
+
+
+//die();
+
+
+RemoveDir(realpath($dest),true,$exc);
 
 
 // unzip
@@ -109,8 +120,9 @@ $zip->extractTo("$dest/");
 $zip->close();
 
 copy_recursively("$owner-$reponame-$node", $dest);
-rmdirRecursively("$owner-$reponame-$node", true);
-rmdir("$owner-$reponame-$node");
+
+RemoveDir(realpath("$owner-$reponame-$node"),false);
+@rmdir("$owner-$reponame-$node");
 // Delete the repo zip file
 unlink("tip.zip");
 
@@ -120,6 +132,10 @@ function updateDeploy() {
     global $force;
     global $dest;
     global $mode;
+    $updated = isset($_GET['updated']);
+    //var_dump($_GET);
+    if($updated) return true;
+
     $response = "";
 
     $response = file_get_contents("https://api.bitbucket.org/1.0/repositories/codearts/bitbucket-deploy/changesets?limit=1");
@@ -128,7 +144,8 @@ function updateDeploy() {
     $node = $changesets['changesets'][0]['node'];
     $raw_node = $changesets['changesets'][0]['raw_node'];
 
-    if (!$force && file_exists('data.hash')) {
+    $lastcommit = file_get_contents('data.hash');
+    if (file_exists('data.hash')) {    //   if (!$force && file_exists('data.hash')) {
         $lastcommit = file_get_contents('data.hash');
         if ($lastcommit == $node)
             return;
@@ -149,47 +166,60 @@ function updateDeploy() {
     $zip->close();
     unlink('deploy.php');
     copy("codearts-bitbucket-deploy-$node/deploy.php", 'deploy.php');
-    unlink("codearts-bitbucket-deploy-$node/deploy.php");
-    unlink("codearts-bitbucket-deploy-$node/README");
-    rmdirRecursively("codearts-bitbucket-deploy-$node");
-    $uri = $_SERVER['REQUEST_URI'];
-    if (strpos($uri, "?") > 0) {
-        $uri.="&updated";
-    }
-    else
-        $uri.="?updated";
-    header("Location:/deploy.php" . $uri);
+    //unlink("codearts-bitbucket-deploy-$node/deploy.php");
+    RemoveDir(realpath("codearts-bitbucket-deploy-$node"),false);
+    @rmdir(realpath("codearts-bitbucket-deploy-$node"));
+
+    $url="http://".$_SERVER['HTTP_HOST']."/deploy.php?updated".(($force)?'&force':'');
+
+    header("Location:".$url);
     die();
 
 //    if($mode != 1) echo "\n<br>Bitbucket Deploy Updated<br>\n";
 }
 
-function rmdirRecursively($dir, $noExclude = false) {
-    global $exc;
-    $noExclude |= ( preg_match('/\w{0,}-\w{0,}-[0-9|a|b|c|d|e|f]{12}/', $dir) > 0);
-    //  echo $dir;
-    //   var_dump($noExclude);
-    // echo '\n'.$dir.'\n';
-    $it = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir), RecursiveIteratorIterator::CHILD_FIRST
-    );
 
-    $excludeDirsNames = array();
-    $excludeFileNames = $exc["files"];
+// Deleting with exclude list
 
-    foreach ($it as $entry) {
-        // var_dump($entry->getPathname());
-        if ($entry->isDir()) {
-            if ($noExclude || !in_array($entry->getBasename(), $excludeDirsNames)) {
-                //	echo "\n\n erasing dir ".$entry->getBasename()." \n\n";
-                rmdirRecursively($entry->getPathname());
-                rmdir($entry->getPathname());
-            }
-        } elseif ($noExclude || !in_array($entry->getFileName(), $excludeFileNames)) {
-            unlink($entry->getPathname());
+
+function checkExcluding($path,$excludinglist)
+{
+    if(!isset($excludinglist["files"])) return false;
+    if(!is_dir($path))
+    {
+        return in_array($path,$excludinglist["files"]);
+    }
+    else
+        return in_array($path,$excludinglist["dirs"]);
+}
+
+function RemoveDir($dir,$exclude=false,$excludelist = array())
+{
+    $it = new RecursiveDirectoryIterator($dir);
+    $files = new RecursiveIteratorIterator($it,
+        RecursiveIteratorIterator::CHILD_FIRST);
+  //  var_dump($files);
+    foreach ($files as $file) {
+        if($exclude && checkExcluding($file->getRealPath(),$excludelist))
+        {
+          //  echo 'Excluding: ' . $file->getRealPath() . '<br>';
+            continue;
+        }
+
+        if ($file->isDir()) {
+            @rmdir($file->getRealPath());
+            //echo 'DIR: ' . $file->getRealPath() . '<br>';
+        } else {
+            @unlink($file->getRealPath());
+            //echo 'FILE: ' . $file->getRealPath() . '<br>';
         }
     }
+    if(file_exists($dir))
+        @rmdir($dir);
 }
+
+
+
 
 function copy_recursively($src, $dest) {
     //var_dump($src);
