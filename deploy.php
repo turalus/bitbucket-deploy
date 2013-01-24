@@ -94,19 +94,14 @@ if ($tipsize < 50) {
     die("Commit not found");
 }
 
-
-
-
 if ($autoUpdate)
     updateDeploy();
 
 //var_dump($exc);
-
-
 //die();
 
 
-RemoveDir(realpath($dest),true,$exc);
+RemoveDir(realpath($dest), true, $exc);
 
 
 // unzip
@@ -121,7 +116,7 @@ $zip->close();
 
 copy_recursively("$owner-$reponame-$node", $dest);
 
-RemoveDir(realpath("$owner-$reponame-$node"),false);
+RemoveDir(realpath("$owner-$reponame-$node"), false);
 @rmdir("$owner-$reponame-$node");
 // Delete the repo zip file
 unlink("tip.zip");
@@ -134,7 +129,8 @@ function updateDeploy() {
     global $mode;
     $updated = isset($_GET['updated']);
     //var_dump($_GET);
-    if($updated) return true;
+    if ($updated)
+        return true;
 
     $response = "";
 
@@ -167,42 +163,37 @@ function updateDeploy() {
     unlink('deploy.php');
     copy("codearts-bitbucket-deploy-$node/deploy.php", 'deploy.php');
     //unlink("codearts-bitbucket-deploy-$node/deploy.php");
-    RemoveDir(realpath("codearts-bitbucket-deploy-$node"),false);
+    RemoveDir(realpath("codearts-bitbucket-deploy-$node"), false);
     @rmdir(realpath("codearts-bitbucket-deploy-$node"));
 
-    $url="http://".$_SERVER['HTTP_HOST']."/deploy.php?updated".(($force)?'&force':'');
+    $url = "http://" . $_SERVER['HTTP_HOST'] . "/deploy.php?updated" . (($force) ? '&force' : '');
 
-    header("Location:".$url);
+    header("Location:" . $url);
     die();
 
 //    if($mode != 1) echo "\n<br>Bitbucket Deploy Updated<br>\n";
 }
 
-
 // Deleting with exclude list
 
 
-function checkExcluding($path,$excludinglist)
-{
-    if(!isset($excludinglist["files"])) return false;
-    if(!is_dir($path))
-    {
-        return in_array($path,$excludinglist["files"]);
+function checkExcluding($path, $excludinglist) {
+    if (!isset($excludinglist["files"]))
+        return false;
+    if (!is_dir($path)) {
+        return in_array($path, $excludinglist["files"]);
     }
     else
-        return in_array($path,$excludinglist["dirs"]);
+        return in_array($path, $excludinglist["dirs"]);
 }
 
-function RemoveDir($dir,$exclude=false,$excludelist = array())
-{
+function RemoveDir($dir, $exclude = false, $excludelist = array()) {
     $it = new RecursiveDirectoryIterator($dir);
-    $files = new RecursiveIteratorIterator($it,
-        RecursiveIteratorIterator::CHILD_FIRST);
-  //  var_dump($files);
+    $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
+    //  var_dump($files);
     foreach ($files as $file) {
-        if($exclude && checkExcluding($file->getRealPath(),$excludelist))
-        {
-          //  echo 'Excluding: ' . $file->getRealPath() . '<br>';
+        if ($exclude && checkExcluding($file->getRealPath(), $excludelist)) {
+            //  echo 'Excluding: ' . $file->getRealPath() . '<br>';
             continue;
         }
 
@@ -214,12 +205,9 @@ function RemoveDir($dir,$exclude=false,$excludelist = array())
             //echo 'FILE: ' . $file->getRealPath() . '<br>';
         }
     }
-    if(file_exists($dir))
+    if (file_exists($dir))
         @rmdir($dir);
 }
-
-
-
 
 function copy_recursively($src, $dest) {
     //var_dump($src);
